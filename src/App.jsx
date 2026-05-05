@@ -16,19 +16,7 @@ import {
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 
-// Dados estáticos de Eventos Padrão (ONDE O ERRO ESTAVA ACONTECENDO)
-const eventosPadrao = [
-  { 
-    id: 'evangelismo', 
-    expiracao: '2026-05-10', 
-    texto: "🟡 *Fins de Semana de Evangelismo com Luís Gonçalves*\n19/09, Sexta as 19h30\n20/09, Sábado as 17h00\n21/09, Domingo as 19h30" 
-  },
-  { 
-    id: 'classeBiblica', 
-    expiracao: 'permanente', 
-    texto: "📒 *Classe Bíblica* | {DATA_DOMINGO}\n_Horário:_ 18h00" 
-  }
-];
+
 
 // Dados estáticos
 const aniversariantesJSON = [
@@ -62,7 +50,7 @@ export default function App() {
 
   useEffect(() => {
     const eventosSalvos = localStorage.getItem('boletim_eventos');
-    let listaEventos = eventosSalvos ? JSON.parse(eventosSalvos) : eventosPadrao;
+    let listaEventos = eventosSalvos ? JSON.parse(eventosSalvos) : null;
     const hoje = new Date().toISOString().split('T')[0];
     
     const eventosValidos = listaEventos.filter(ev => ev.expiracao === 'permanente' || ev.expiracao >= hoje);
