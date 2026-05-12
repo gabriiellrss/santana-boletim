@@ -12,13 +12,11 @@ import {
   Check, 
   X, 
   Trash2, 
-  Plus 
+  Plus,
+  Loader2,
+  LayoutTemplate // <- Novo ícone para a escolha de templates
 } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
 
-
-
-// Dados estáticos
 const aniversariantesJSON = [
   { dia: "02/09", nome: "Maria Simony Barros de Lima", mes: 9 },
   { dia: "04/05", nome: "Irmão Teste de Maio", mes: 5 },
@@ -28,16 +26,17 @@ const aniversariantesJSON = [
 export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('editor'); 
   const [modalAtivo, setModalAtivo] = useState(null); 
+  const [template, setTemplate] = useState('padrao'); // Estado do template escolhido
 
   const [formData, setFormData] = useState({
-    sabadoTema: '*Programação Especial*\n_Dia mundial dos Desbravadores_',
-    sabadoPregador: 'Victor Matheus IASD',
-    domingoTema: '*Fim de Semana de Evangelismo*\n*NÃO HAVERÁ CULTO NA IGREJA LOCAL*',
-    domingoPregador: 'Luís Gonçalves',
-    domingoLocal: 'IASD Central Diadema',
-    quartaEstudo: 'Livro Oração',
-    quartaPregador: 'Pr. Peduti',
-    proximoSabadoPregador: 'Wellington IASD'
+    sabadoTema: '',
+    sabadoPregador: '',
+    domingoTema: '',
+    domingoPregador: '',
+    domingoLocal: '',
+    quartaEstudo: '',
+    quartaPregador: '',
+    proximoSabadoPregador: ''
   });
 
   const [eventos, setEventos] = useState([]);
@@ -50,7 +49,7 @@ export default function App() {
 
   useEffect(() => {
     const eventosSalvos = localStorage.getItem('boletim_eventos');
-    let listaEventos = eventosSalvos ? JSON.parse(eventosSalvos) : null;
+    let listaEventos = eventosSalvos ? JSON.parse(eventosSalvos) : [];
     const hoje = new Date().toISOString().split('T')[0];
     
     const eventosValidos = listaEventos.filter(ev => ev.expiracao === 'permanente' || ev.expiracao >= hoje);
@@ -60,12 +59,23 @@ export default function App() {
     setEventos(eventosValidos);
 
     const rascunho = localStorage.getItem('boletim_rascunho');
-    if (rascunho) setFormData(JSON.parse(rascunho));
+    if (rascunho) {
+      setFormData(JSON.parse(rascunho));
+    }
+    
+    // Recupera o último template usado
+    const templateSalvo = localStorage.getItem('boletim_template');
+    if (templateSalvo) setTemplate(templateSalvo);
   }, []);
 
   useEffect(() => {
     localStorage.setItem('boletim_rascunho', JSON.stringify(formData));
   }, [formData]);
+
+  // Salva a preferência do template
+  useEffect(() => {
+    localStorage.setItem('boletim_template', template);
+  }, [template]);
 
   const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -79,7 +89,8 @@ export default function App() {
     const novaLista = [...eventos, novoEvento];
     setEventos(novaLista);
     localStorage.setItem('boletim_eventos', JSON.stringify(novaLista));
-    setNovoEventoTexto(''); setNovoEventoData('');
+    setNovoEventoTexto(''); 
+    setNovoEventoData('');
   };
 
   const handleRemoverEvento = (id) => {
@@ -92,22 +103,37 @@ export default function App() {
   const adicionarDias = (data, dias) => { const n = new Date(data); n.setDate(n.getDate() + dias); return n; };
   const obterSegunda = (data) => { const d = new Date(data); const dia = d.getDay(); const diff = d.getDate() - dia + (dia === 0 ? -6 : 1); return new Date(d.setDate(diff)); };
 
+  const buscarPorDoSol = async (dataSabado) => {
+    const lat = -23.6815; 
+    const lng = -46.6206;
+    const dataISO = dataSabado.toISOString().split('T')[0];
+    try {
+      const res = await fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${dataISO}&formatted=0`);
+      const apiData = await res.json();
+      const sunsetUtc = new Date(apiData.results.sunset);
+      const horarioSP = sunsetUtc.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+      return `\n🌥️ *Pôr do Sol - Sábado ${formatarData(dataSabado)}*\n⏰ ${horarioSP}h`;
+    } catch (e) {
+      return `\n🌥️ *Pôr do Sol - Sábado ${formatarData(dataSabado)}*\n⏰ 18h00 (Aprox.)`;
+    }
+  };
+
   const gerarBoletim = async () => {
-    setCarregando(true); setCopiado(false); setAbaAtiva('resultado');
+    setCarregando(true); 
+    setCopiado(false); 
+    setAbaAtiva('resultado');
     
     const dataBase = obterSegunda(new Date());
     const datas = {
-      inicio: dataBase, fim: adicionarDias(dataBase, 6),
-      quarta: adicionarDias(dataBase, 2), sabado: adicionarDias(dataBase, 5),
-      domingo: adicionarDias(dataBase, 6), proximoSabado: adicionarDias(dataBase, 12)
+      inicio: dataBase, 
+      fim: adicionarDias(dataBase, 6),
+      quarta: adicionarDias(dataBase, 2), 
+      sabado: adicionarDias(dataBase, 5),
+      domingo: adicionarDias(dataBase, 6), 
+      proximoSabado: adicionarDias(dataBase, 12)
     };
 
-    const header = `⚠️ *Atenção para o nosso boletim!*\n\n🟡 *Cultos e programações* do dia ${formatarData(datas.inicio)} até ${formatarData(datas.fim)}\n`;
-    const temaSabado = formData.sabadoTema ? `${formData.sabadoTema}\n` : '';
-    const temaDomingo = formData.domingoTema ? `${formData.domingoTema}\n` : '';
-
-    const cultos = `\n🙌 SÁBADO | ${formatarData(datas.sabado)}\n${temaSabado}_9h:_ Escola Sabatina\n_10h00:_ Culto de Adoração\nPregador(a): ${formData.sabadoPregador}\n\n📖 DOMINGO | ${formatarData(datas.domingo)}\n${temaDomingo}Pregador(a): ${formData.domingoPregador}\nLocal: ${formData.domingoLocal}\n\n🙏 QUARTA | ${formatarData(datas.quarta)}\n_20h00:_ Culto de Oração\n_Estudo:_ ${formData.quartaEstudo}\nPregador(a): ${formData.quartaPregador}\n\n⏭️ Próximo Sábado | ${formatarData(datas.proximoSabado)}\nPregador(a): ${formData.proximoSabadoPregador}\n`;
-
+    // --- PROCESSAMENTO COMUM AOS TEMPLATES ---
     let textoEventos = '\n';
     eventos.forEach(ev => textoEventos += `${ev.texto.replace('{DATA_DOMINGO}', formatarData(datas.domingo))}\n\n`);
 
@@ -115,11 +141,49 @@ export default function App() {
     let niversStr = `🟤 *Lista de Aniversariantes do mês*\n`;
     niversMes.length > 0 ? niversMes.forEach(p => niversStr += `${p.dia} - _${p.nome}_\n`) : niversStr += "Nenhum no mês.\n";
 
-    setBoletim(`${header}${cultos}${textoEventos}${niversStr}\n🌥️ *Pôr do Sol - Sábado*\n⏰ 18h00 (Aprox.)`);
+    const solStr = await buscarPorDoSol(datas.sabado);
+    
+    let boletimFinal = '';
+
+    // --- SELEÇÃO DO MODELO ---
+    if (template === 'padrao') {
+      // MODELO 1: Padrão / Completo
+      const header = `⚠️ *Atenção para o nosso boletim!*\n\n🟡 *Cultos e programações* do dia ${formatarData(datas.inicio)} até ${formatarData(datas.fim)}\n`;
+      const temaSabado = formData.sabadoTema ? `${formData.sabadoTema}\n` : '';
+      const temaDomingo = formData.domingoTema ? `${formData.domingoTema}\n` : '';
+
+      const cultos = `\n🙌 SÁBADO | ${formatarData(datas.sabado)}\n${temaSabado}_9h:_ Escola Sabatina\n_10h00:_ Culto de Adoração\nPregador(a): ${formData.sabadoPregador || 'A definir'}\n\n📖 DOMINGO | ${formatarData(datas.domingo)}\n${temaDomingo}Pregador(a): ${formData.domingoPregador || 'A definir'}\nLocal: ${formData.domingoLocal || 'A definir'}\n\n🙏 QUARTA | ${formatarData(datas.quarta)}\n_20h00:_ Culto de Oração\n_Estudo:_ ${formData.quartaEstudo || 'A definir'}\nPregador(a): ${formData.quartaPregador || 'A definir'}\n\n⏭️ Próximo Sábado | ${formatarData(datas.proximoSabado)}\nPregador(a): ${formData.proximoSabadoPregador || 'A definir'}\n`;
+
+      boletimFinal = `${header}${cultos}${textoEventos}${niversStr}${solStr}`;
+
+    } else if (template === 'compacto') {
+      // MODELO 2: Compacto / Direto
+      const header = `🚀 *BOLETIM SEMANAL* | _${formatarData(datas.inicio)} a ${formatarData(datas.fim)}_\n`;
+      
+      const temaSabado = formData.sabadoTema ? `\n${formData.sabadoTema}` : '';
+      const temaDomingo = formData.domingoTema ? `\n${formData.domingoTema}` : '';
+      const localDomingo = formData.domingoLocal ? `\n📍 ${formData.domingoLocal}` : '';
+
+      const cultos = `\n*SÁBADO (${formatarData(datas.sabado)})*${temaSabado}\n⏰ 9h - Esc. Sabatina | 10h - Culto\n🎤 Resp: ${formData.sabadoPregador || 'A definir'}\n\n*DOMINGO (${formatarData(datas.domingo)})*${temaDomingo}${localDomingo}\n🎤 Resp: ${formData.domingoPregador || 'A definir'}\n\n*QUARTA (${formatarData(datas.quarta)})*\n📖 ${formData.quartaEstudo || 'A definir'}\n🎤 Resp: ${formData.quartaPregador || 'A definir'}\n\n*PRÓX. SÁBADO (${formatarData(datas.proximoSabado)})*\n🎤 Resp: ${formData.proximoSabadoPregador || 'A definir'}\n`;
+      
+      boletimFinal = `${header}${cultos}\n-- *AVISOS* --\n${textoEventos}-- *ANIVERSARIANTES* --\n${niversStr}${solStr}`;
+    }
+
+    setBoletim(boletimFinal);
     setCarregando(false);
   };
 
   const copiarTexto = () => { navigator.clipboard.writeText(boletim); setCopiado(true); };
+
+  const formatarPreviewWhatsApp = (texto) => {
+    if (!texto) return { __html: "O boletim aparecerá aqui após ser gerado." };
+    const htmlFormatado = texto
+      .replace(/\n/g, '<br/>')
+      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+      .replace(/_(.*?)_/g, '<em>$1</em>')
+      .replace(/~(.*?)~/g, '<del>$1</del>');
+    return { __html: htmlFormatado };
+  };
 
   const Card = ({ titulo, icone, children }) => (
     <div className="bg-white/60 backdrop-blur-md border border-white/40 shadow-sm rounded-3xl p-5 mb-4">
@@ -132,62 +196,30 @@ export default function App() {
     </div>
   );
 
-  const Loading = ({ 
-    texto = "Carregando...", 
-    corGiro = "text-indigo-600", // Cor do ícone girando
-    corSombra = "bg-indigo-500", // Cor do brilho no fundo
-    tamanho = "w-10 h-10", 
-    overlay = false // Se for true, cobre a tela toda
-  }) => {
-
+  const Loading = ({ texto = "Carregando...", corGiro = "text-indigo-600", corSombra = "bg-indigo-500", tamanho = "w-10 h-10", overlay = false }) => {
     const conteudo = (
       <div className="flex flex-col items-center justify-center gap-4">
-        {/* Container do ícone com brilho (glow effect) */}
         <div className="relative flex items-center justify-center">
-          {/* Sombra pulsante de fundo */}
           <div className={`absolute inset-0 rounded-full blur-xl opacity-40 animate-pulse ${corSombra}`}></div>
-          {/* Ícone giratório */}
           <Loader2 className={`relative z-10 animate-spin ${tamanho} ${corGiro}`} />
         </div>
-
-        {/* Texto de carregamento */}
-        {texto && (
-          <span className="text-slate-700 font-bold text-sm tracking-wide animate-pulse">
-            {texto}
-          </span>
-        )}
+        {texto && <span className="text-slate-700 font-bold text-sm tracking-wide animate-pulse">{texto}</span>}
       </div>
     );
-
-    // Se o overlay for verdadeiro, cria o fundo translúcido (Glassmorphism) na tela inteira
-    if (overlay) {
-      return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/30 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white/70 border border-white/50 p-8 rounded-[2rem] shadow-2xl flex flex-col items-center">
-            {conteudo}
-          </div>
-        </div>
-      );
-    }
-
-    // Retorna apenas o ícone livre se overlay for falso
+    if (overlay) return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/30 backdrop-blur-md animate-in fade-in duration-300"><div className="bg-white/70 border border-white/50 p-8 rounded-[2rem] shadow-2xl flex flex-col items-center">{conteudo}</div></div>;
     return conteudo;
   };
 
   const InputClean = ({ label, name, placeholder }) => (
     <div className="flex flex-col">
       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-1">{label}</label>
-      <input 
-        name={name} value={formData[name]} onChange={handleInputChange} placeholder={placeholder}
-        className="w-full bg-white/80 border-0 shadow-inner rounded-xl px-4 py-3 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all placeholder:text-slate-300"
-      />
+      <input name={name} value={formData[name] || ''} onChange={handleInputChange} placeholder={placeholder} className="w-full bg-white/80 border-0 shadow-inner rounded-xl px-4 py-3 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all placeholder:text-slate-300" />
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-teal-50 pb-24 font-sans selection:bg-indigo-200">
       
-      {/* HEADER */}
       <header className="pt-10 pb-6 px-6 text-center">
         <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-teal-500 tracking-tight">
           Boletim
@@ -198,10 +230,22 @@ export default function App() {
       <main className="px-4 max-w-md mx-auto">
         <div className={abaAtiva === 'editor' ? 'block animate-in fade-in' : 'hidden'}>
           
+          {/* NOVO CARD: SELEÇÃO DE TEMPLATE */}
+          <Card titulo="Modelo do Boletim" icone={<LayoutTemplate className="w-5 h-5 text-indigo-500" />}>
+            <select
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              className="w-full bg-white/80 border-0 shadow-inner rounded-xl px-4 py-3 text-slate-700 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all appearance-none cursor-pointer"
+            >
+              <option value="padrao">🌟 Padrão (Completo)</option>
+              <option value="compacto">📱 Compacto (Direto ao ponto)</option>
+            </select>
+          </Card>
+
           <Card titulo="Sábado" icone={<CalendarDays className="w-5 h-5 text-indigo-500" />}>
             <div className="flex gap-2">
               <div className="flex-1">
-                <InputClean label="Pregador" name="sabadoPregador" placeholder="Nome do pregador..." />
+                <InputClean label="Pregador" name="sabadoPregador" placeholder="Ex: Victor Matheus" />
               </div>
               <button onClick={() => setModalAtivo('sabado')} className="mt-5 bg-white shadow-sm border border-slate-200 text-slate-600 rounded-xl w-12 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
                 <Settings2 className="w-5 h-5" />
@@ -212,7 +256,7 @@ export default function App() {
           <Card titulo="Domingo" icone={<BookOpen className="w-5 h-5 text-indigo-500" />}>
             <div className="flex gap-2">
               <div className="flex-1">
-                <InputClean label="Pregador" name="domingoPregador" placeholder="Nome do pregador..." />
+                <InputClean label="Pregador" name="domingoPregador" placeholder="Ex: Luís Gonçalves" />
               </div>
               <button onClick={() => setModalAtivo('domingo')} className="mt-5 bg-white shadow-sm border border-slate-200 text-slate-600 rounded-xl w-12 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
                 <Settings2 className="w-5 h-5" />
@@ -223,7 +267,7 @@ export default function App() {
           <Card titulo="Quarta-feira" icone={<Heart className="w-5 h-5 text-indigo-500" />}>
             <div className="flex gap-2">
               <div className="flex-1">
-                <InputClean label="Pregador" name="quartaPregador" placeholder="Nome do pregador..." />
+                <InputClean label="Pregador" name="quartaPregador" placeholder="Ex: Pr. Peduti" />
               </div>
               <button onClick={() => setModalAtivo('quarta')} className="mt-5 bg-white shadow-sm border border-slate-200 text-slate-600 rounded-xl w-12 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
                 <Settings2 className="w-5 h-5" />
@@ -232,7 +276,7 @@ export default function App() {
           </Card>
 
           <Card titulo="Próximo Sábado" icone={<SkipForward className="w-5 h-5 text-indigo-500" />}>
-            <InputClean label="Pregador" name="proximoSabadoPregador" placeholder="Nome do pregador..." />
+            <InputClean label="Pregador" name="proximoSabadoPregador" placeholder="Ex: Wellington IASD" />
           </Card>
 
           <Card titulo="Eventos & Anúncios" icone={<Bell className="w-5 h-5 text-indigo-500" />}>
@@ -262,7 +306,6 @@ export default function App() {
           </Card>
         </div>
 
-        {/* ABA: RESULTADO */}
         <div className={abaAtiva === 'resultado' ? 'block animate-in fade-in' : 'hidden'}>
           <div className="bg-white/80 backdrop-blur-md rounded-3xl p-5 shadow-lg border border-white mb-6 relative">
             <div className="flex justify-between items-center mb-4">
@@ -273,14 +316,14 @@ export default function App() {
                 </button>
               )}
             </div>
-            <pre className="whitespace-pre-wrap text-[13px] text-slate-700 font-sans leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-              {boletim || "O boletim aparecerá aqui após ser gerado."}
-            </pre>
+            <div 
+              className="whitespace-pre-wrap text-[13px] text-slate-700 font-sans leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100 [&>strong]:font-bold [&>strong]:text-slate-900 [&>em]:italic"
+              dangerouslySetInnerHTML={formatarPreviewWhatsApp(boletim)}
+            />
           </div>
         </div>
       </main>
 
-      {/* NAVEGAÇÃO BOTTOM */}
       <nav className="fixed bottom-0 w-full bg-white/80 backdrop-blur-xl border-t border-slate-200/60 p-4 pb-safe flex justify-center gap-3">
         <button 
           onClick={() => setAbaAtiva('editor')} 
@@ -297,7 +340,6 @@ export default function App() {
         </button>
       </nav>
 
-      {/* MODAL DE OPÇÕES AVANÇADAS */}
       {modalAtivo && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center animate-in fade-in">
           <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-10 border border-slate-100">
@@ -314,14 +356,25 @@ export default function App() {
               {(modalAtivo === 'sabado' || modalAtivo === 'domingo') && (
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Tema Especial</label>
-                  <textarea name={`${modalAtivo}Tema`} value={formData[`${modalAtivo}Tema`]} onChange={handleInputChange} rows={3} className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none text-sm transition-all" />
+                  <textarea 
+                    name={`${modalAtivo}Tema`} 
+                    value={formData[`${modalAtivo}Tema`] || ''} 
+                    onChange={handleInputChange} 
+                    rows={3} 
+                    placeholder={
+                      modalAtivo === 'sabado' 
+                        ? "Ex: *Programação Especial*\n_Dia mundial dos Desbravadores_" 
+                        : "Ex: *Fim de Semana de Evangelismo*\n*NÃO HAVERÁ CULTO NA IGREJA LOCAL*"
+                    }
+                    className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none text-sm transition-all placeholder:text-slate-400" 
+                  />
                 </div>
               )}
               {modalAtivo === 'domingo' && (
-                <InputClean label="Localização" name="domingoLocal" />
+                <InputClean label="Localização" name="domingoLocal" placeholder="Ex: IASD Central Diadema" />
               )}
               {modalAtivo === 'quarta' && (
-                <InputClean label="Livro/Estudo" name="quartaEstudo" />
+                <InputClean label="Livro/Estudo" name="quartaEstudo" placeholder="Ex: Livro Oração" />
               )}
               <button disabled={carregando} onClick={() => setModalAtivo(null)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl mt-4 shadow-md shadow-indigo-200 transition-all active:scale-95">
                 Salvar e Fechar
@@ -334,7 +387,7 @@ export default function App() {
       {carregando && (
         <Loading 
           overlay={true} 
-          texto="Gerando Boletim..." 
+          texto="Buscando pôr do sol..." 
           corGiro="text-teal-500" 
           corSombra="bg-teal-400" 
         />
