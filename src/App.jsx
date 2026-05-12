@@ -245,6 +245,10 @@ export default function App() {
     setAbaAtiva('resultado');
     
     const dataBase = obterSegunda(new Date());
+
+    // const dataTeste = new Date('2026-05-20T12:00:00'); 
+    // const dataBase = obterSegunda(dataTeste);
+    
     const datas = {
       inicio: dataBase, 
       fim: adicionarDias(dataBase, 6),
@@ -275,7 +279,7 @@ export default function App() {
     } else {
       niversStr += "Nenhum no mês.\n";
     }
-    
+
     const solStr = await buscarPorDoSol(datas.sabado);
     
     let boletimFinal = '';
