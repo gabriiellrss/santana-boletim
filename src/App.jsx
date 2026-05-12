@@ -14,7 +14,7 @@ import {
   Trash2, 
   Plus,
   Loader2,
-  LayoutTemplate // <- Novo ícone para a escolha de templates
+  LayoutTemplate
 } from 'lucide-react';
 
 const aniversariantesJSON = [
@@ -23,10 +23,52 @@ const aniversariantesJSON = [
   { dia: "15/09", nome: "Marciano De Brito Santos", mes: 9 },
 ];
 
+// --- COMPONENTES AUXILIARES (Movidos para fora do App para não perderem o foco) ---
+
+const Card = ({ titulo, icone, children }) => (
+  <div className="bg-white/60 backdrop-blur-md border border-white/40 shadow-sm rounded-3xl p-5 mb-4">
+    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-3">
+      {icone} <span className="tracking-tight">{titulo}</span>
+    </h3>
+    <div className="flex flex-col gap-3">
+      {children}
+    </div>
+  </div>
+);
+
+const Loading = ({ texto = "Carregando...", corGiro = "text-indigo-600", corSombra = "bg-indigo-500", tamanho = "w-10 h-10", overlay = false }) => {
+  const conteudo = (
+    <div className="flex flex-col items-center justify-center gap-4">
+      <div className="relative flex items-center justify-center">
+        <div className={`absolute inset-0 rounded-full blur-xl opacity-40 animate-pulse ${corSombra}`}></div>
+        <Loader2 className={`relative z-10 animate-spin ${tamanho} ${corGiro}`} />
+      </div>
+      {texto && <span className="text-slate-700 font-bold text-sm tracking-wide animate-pulse">{texto}</span>}
+    </div>
+  );
+  if (overlay) return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/30 backdrop-blur-md animate-in fade-in duration-300"><div className="bg-white/70 border border-white/50 p-8 rounded-[2rem] shadow-2xl flex flex-col items-center">{conteudo}</div></div>;
+  return conteudo;
+};
+
+const InputClean = ({ label, name, placeholder, value, onChange }) => (
+  <div className="flex flex-col">
+    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-1">{label}</label>
+    <input 
+      name={name} 
+      value={value || ''} 
+      onChange={onChange} 
+      placeholder={placeholder} 
+      className="w-full bg-white/80 border-0 shadow-inner rounded-xl px-4 py-3 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all placeholder:text-slate-300" 
+    />
+  </div>
+);
+
+// --- COMPONENTE PRINCIPAL ---
+
 export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('editor'); 
   const [modalAtivo, setModalAtivo] = useState(null); 
-  const [template, setTemplate] = useState('padrao'); // Estado do template escolhido
+  const [template, setTemplate] = useState('padrao'); 
 
   const [formData, setFormData] = useState({
     sabadoTema: '',
@@ -63,7 +105,6 @@ export default function App() {
       setFormData(JSON.parse(rascunho));
     }
     
-    // Recupera o último template usado
     const templateSalvo = localStorage.getItem('boletim_template');
     if (templateSalvo) setTemplate(templateSalvo);
   }, []);
@@ -72,7 +113,6 @@ export default function App() {
     localStorage.setItem('boletim_rascunho', JSON.stringify(formData));
   }, [formData]);
 
-  // Salva a preferência do template
   useEffect(() => {
     localStorage.setItem('boletim_template', template);
   }, [template]);
@@ -133,7 +173,6 @@ export default function App() {
       proximoSabado: adicionarDias(dataBase, 12)
     };
 
-    // --- PROCESSAMENTO COMUM AOS TEMPLATES ---
     let textoEventos = '\n';
     eventos.forEach(ev => textoEventos += `${ev.texto.replace('{DATA_DOMINGO}', formatarData(datas.domingo))}\n\n`);
 
@@ -145,9 +184,7 @@ export default function App() {
     
     let boletimFinal = '';
 
-    // --- SELEÇÃO DO MODELO ---
     if (template === 'padrao') {
-      // MODELO 1: Padrão / Completo
       const header = `⚠️ *Atenção para o nosso boletim!*\n\n🟡 *Cultos e programações* do dia ${formatarData(datas.inicio)} até ${formatarData(datas.fim)}\n`;
       const temaSabado = formData.sabadoTema ? `${formData.sabadoTema}\n` : '';
       const temaDomingo = formData.domingoTema ? `${formData.domingoTema}\n` : '';
@@ -157,7 +194,6 @@ export default function App() {
       boletimFinal = `${header}${cultos}${textoEventos}${niversStr}${solStr}`;
 
     } else if (template === 'compacto') {
-      // MODELO 2: Compacto / Direto
       const header = `🚀 *BOLETIM SEMANAL* | _${formatarData(datas.inicio)} a ${formatarData(datas.fim)}_\n`;
       
       const temaSabado = formData.sabadoTema ? `\n${formData.sabadoTema}` : '';
@@ -185,38 +221,6 @@ export default function App() {
     return { __html: htmlFormatado };
   };
 
-  const Card = ({ titulo, icone, children }) => (
-    <div className="bg-white/60 backdrop-blur-md border border-white/40 shadow-sm rounded-3xl p-5 mb-4">
-      <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-3">
-        {icone} <span className="tracking-tight">{titulo}</span>
-      </h3>
-      <div className="flex flex-col gap-3">
-        {children}
-      </div>
-    </div>
-  );
-
-  const Loading = ({ texto = "Carregando...", corGiro = "text-indigo-600", corSombra = "bg-indigo-500", tamanho = "w-10 h-10", overlay = false }) => {
-    const conteudo = (
-      <div className="flex flex-col items-center justify-center gap-4">
-        <div className="relative flex items-center justify-center">
-          <div className={`absolute inset-0 rounded-full blur-xl opacity-40 animate-pulse ${corSombra}`}></div>
-          <Loader2 className={`relative z-10 animate-spin ${tamanho} ${corGiro}`} />
-        </div>
-        {texto && <span className="text-slate-700 font-bold text-sm tracking-wide animate-pulse">{texto}</span>}
-      </div>
-    );
-    if (overlay) return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/30 backdrop-blur-md animate-in fade-in duration-300"><div className="bg-white/70 border border-white/50 p-8 rounded-[2rem] shadow-2xl flex flex-col items-center">{conteudo}</div></div>;
-    return conteudo;
-  };
-
-  const InputClean = ({ label, name, placeholder }) => (
-    <div className="flex flex-col">
-      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-1">{label}</label>
-      <input name={name} value={formData[name] || ''} onChange={handleInputChange} placeholder={placeholder} className="w-full bg-white/80 border-0 shadow-inner rounded-xl px-4 py-3 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all placeholder:text-slate-300" />
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-teal-50 pb-24 font-sans selection:bg-indigo-200">
       
@@ -230,7 +234,6 @@ export default function App() {
       <main className="px-4 max-w-md mx-auto">
         <div className={abaAtiva === 'editor' ? 'block animate-in fade-in' : 'hidden'}>
           
-          {/* NOVO CARD: SELEÇÃO DE TEMPLATE */}
           <Card titulo="Modelo do Boletim" icone={<LayoutTemplate className="w-5 h-5 text-indigo-500" />}>
             <select
               value={template}
@@ -245,7 +248,7 @@ export default function App() {
           <Card titulo="Sábado" icone={<CalendarDays className="w-5 h-5 text-indigo-500" />}>
             <div className="flex gap-2">
               <div className="flex-1">
-                <InputClean label="Pregador" name="sabadoPregador" placeholder="Ex: Victor Matheus" />
+                <InputClean label="Pregador" name="sabadoPregador" value={formData.sabadoPregador} onChange={handleInputChange} placeholder="Ex: Victor Matheus" />
               </div>
               <button onClick={() => setModalAtivo('sabado')} className="mt-5 bg-white shadow-sm border border-slate-200 text-slate-600 rounded-xl w-12 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
                 <Settings2 className="w-5 h-5" />
@@ -256,7 +259,7 @@ export default function App() {
           <Card titulo="Domingo" icone={<BookOpen className="w-5 h-5 text-indigo-500" />}>
             <div className="flex gap-2">
               <div className="flex-1">
-                <InputClean label="Pregador" name="domingoPregador" placeholder="Ex: Luís Gonçalves" />
+                <InputClean label="Pregador" name="domingoPregador" value={formData.domingoPregador} onChange={handleInputChange} placeholder="Ex: Luís Gonçalves" />
               </div>
               <button onClick={() => setModalAtivo('domingo')} className="mt-5 bg-white shadow-sm border border-slate-200 text-slate-600 rounded-xl w-12 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
                 <Settings2 className="w-5 h-5" />
@@ -267,7 +270,7 @@ export default function App() {
           <Card titulo="Quarta-feira" icone={<Heart className="w-5 h-5 text-indigo-500" />}>
             <div className="flex gap-2">
               <div className="flex-1">
-                <InputClean label="Pregador" name="quartaPregador" placeholder="Ex: Pr. Peduti" />
+                <InputClean label="Pregador" name="quartaPregador" value={formData.quartaPregador} onChange={handleInputChange} placeholder="Ex: Pr. Peduti" />
               </div>
               <button onClick={() => setModalAtivo('quarta')} className="mt-5 bg-white shadow-sm border border-slate-200 text-slate-600 rounded-xl w-12 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
                 <Settings2 className="w-5 h-5" />
@@ -276,7 +279,7 @@ export default function App() {
           </Card>
 
           <Card titulo="Próximo Sábado" icone={<SkipForward className="w-5 h-5 text-indigo-500" />}>
-            <InputClean label="Pregador" name="proximoSabadoPregador" placeholder="Ex: Wellington IASD" />
+            <InputClean label="Pregador" name="proximoSabadoPregador" value={formData.proximoSabadoPregador} onChange={handleInputChange} placeholder="Ex: Wellington IASD" />
           </Card>
 
           <Card titulo="Eventos & Anúncios" icone={<Bell className="w-5 h-5 text-indigo-500" />}>
@@ -371,10 +374,10 @@ export default function App() {
                 </div>
               )}
               {modalAtivo === 'domingo' && (
-                <InputClean label="Localização" name="domingoLocal" placeholder="Ex: IASD Central Diadema" />
+                <InputClean label="Localização" name="domingoLocal" value={formData.domingoLocal} onChange={handleInputChange} placeholder="Ex: IASD Central Diadema" />
               )}
               {modalAtivo === 'quarta' && (
-                <InputClean label="Livro/Estudo" name="quartaEstudo" placeholder="Ex: Livro Oração" />
+                <InputClean label="Livro/Estudo" name="quartaEstudo" value={formData.quartaEstudo} onChange={handleInputChange} placeholder="Ex: Livro Oração" />
               )}
               <button disabled={carregando} onClick={() => setModalAtivo(null)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl mt-4 shadow-md shadow-indigo-200 transition-all active:scale-95">
                 Salvar e Fechar
